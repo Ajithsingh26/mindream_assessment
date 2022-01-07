@@ -1,15 +1,10 @@
 
 from django.db.models.aggregates import Avg
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import json
 from django.db.models import F
 from .models import Students,Subjects
-#from .serializers import StudentSerializer
-from django.db.models import Sum
-# Create your views here.
 
 class StudentCreateMark(APIView):
     
@@ -26,7 +21,8 @@ class StudentCreateMark(APIView):
             social  = (data.get("social"))
             
             student_new, created = Students.objects.update_or_create(name=student_name,date_of_birth = dob,father_name = father_name)
-            #print(created)
+            # using update or create to check if the student details are alread there in db.
+            # if its there then it only add marks and link it with the existing student data
             if created:
                 student_id = Students.objects.filter(pk = student_new.pk).first()
             else:
@@ -93,6 +89,7 @@ class GetStudentTotalMark(APIView):
             all_students_marks = []           
             for student in student_obj:
                 total = Subjects.objects.filter(pk=student.pk).annotate(total=F('english') + F('tamil') + F('maths') + F('science') + F('social')).values('total')[0].get('total')
+                #using F and + becoz we doing addition horizontally with multiple fields
                 all_students_marks.append({
                     'student_name':student.name,
                     'total_marks':total
@@ -117,6 +114,7 @@ class GetAverageMark(APIView):
         try:
             average_marks = []
             subject_name =  [field.name for field in Subjects._meta.get_fields()]
+            # using slicing to exclude id and student fields
             for sub in subject_name[2::]:
                 average_marks.append({
                     sub:Subjects.objects.aggregate(a = Avg(sub)).get('a')
