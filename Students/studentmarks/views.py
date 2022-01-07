@@ -3,8 +3,8 @@ from django.db.models.aggregates import Avg
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import F
-from .models import Students,Subjects
+from django.db.models import Avg, Sum
+from .models import StudentsDetails,Subjects,Studentmarks
 
 class StudentCreateMark(APIView):
     
@@ -14,27 +14,22 @@ class StudentCreateMark(APIView):
             student_name = (data.get("name"))
             dob = (data.get("date"))
             father_name = (data.get("father_name"))
-            english = (data.get("english"))
-            tamil   = (data.get("tamil"))
-            maths   = (data.get("maths"))
-            science = (data.get("science"))
-            social  = (data.get("social"))
             
-            student_new, created = Students.objects.update_or_create(name=student_name,date_of_birth = dob,father_name = father_name)
+            
+            student_new, created = StudentsDetails.objects.update_or_create(name=student_name,date_of_birth = dob,father_name = father_name)
             # using update or create to check if the student details are alread there in db.
             # if its there then it only add marks and link it with the existing student data
             if created:
-                student_id = Students.objects.filter(pk = student_new.pk).first()
+                student_id = StudentsDetails.objects.filter(pk = student_new.pk).first()
             else:
-                student_id = Students.objects.get(name=student_name,date_of_birth = dob,father_name = father_name)
-            Subjects.objects.create(
-                student = student_id,
-                english  = english,
-                tamil = tamil,
-                maths = maths,
-                science = science,
-                social = social
-                ).save()                                       
+                student_id = StudentsDetails.objects.get(name=student_name,date_of_birth = dob,father_name = father_name)
+            
+            for i in Subjects.objects.values_list('subject_name',flat = True):
+                Studentmarks.objects.create(
+                    student = student_id,
+                    subject = Subjects.objects.get(subject_name=i),
+                    marks = data.get(i)
+                    ).save()                                       
 
             return Response(
                     status=status.HTTP_200_OK,
@@ -54,20 +49,22 @@ class GetStudentsMark(APIView):
     
     def get(self,request):
         try:
-            student_obj = Students.objects.all() 
+            student_obj = StudentsDetails.objects.all() 
             all_students_marks = []           
-            marks = []
             for student in student_obj:
-                mark = Subjects.objects.get(pk = student.pk)
+                sub_marks = {}
+                for sub in Subjects.objects.values_list('subject_name',flat = True): 
+                    sub_id = Subjects.objects.get(subject_name= sub)
+                    sub_marks[sub] = Studentmarks.objects.values_list('marks',flat = True).get(student_id =student.pk,subject_id =sub_id)
+
                 all_students_marks.append({
                     'student_name':student.name,
-                    'english':mark.english,
-                    'tamil': mark.tamil,
-                    'maths': mark.maths,
-                    'science': mark.science,
-                    'social': mark.social
-
-                })
+                    'english': sub_marks.get('english'),
+                    'tamil': sub_marks.get('tamil'),
+                    'maths': sub_marks.get('maths'),
+                    'science': sub_marks.get('science'),
+                    'social': sub_marks.get('social')
+                    })
                
             return Response(
                     status=status.HTTP_200_OK,
@@ -85,15 +82,14 @@ class GetStudentTotalMark(APIView):
     
     def get(self,request):
         try:
-            student_obj = Students.objects.all() 
+            student_obj = StudentsDetails.objects.all() 
             all_students_marks = []           
             for student in student_obj:
-                total = Subjects.objects.filter(pk=student.pk).annotate(total=F('english') + F('tamil') + F('maths') + F('science') + F('social')).values('total')[0].get('total')
-                #using F and + becoz we doing addition horizontally with multiple fields
+                total = Studentmarks.objects.filter(pk=student.pk).annotate(total =Sum('marks')).values('total')[0].get('total')
+                
                 all_students_marks.append({
                     'student_name':student.name,
-                    'total_marks':total
-                    
+                    'total_marks':total                  
                 })
             
             return Response(
@@ -113,11 +109,11 @@ class GetAverageMark(APIView):
     def get(self,request):
         try:
             average_marks = []
-            subject_name =  [field.name for field in Subjects._meta.get_fields()]
-            # using slicing to exclude id and student fields
-            for sub in subject_name[2::]:
+            for sub in Subjects.objects.values_list('subject_name',flat = True):
+                sub_id = Subjects.objects.get(subject_name= sub)
+                avg_marks = Studentmarks.objects.filter(subject_id=sub_id).aggregate(mark = Avg("marks")).get('mark')
                 average_marks.append({
-                    sub:Subjects.objects.aggregate(a = Avg(sub)).get('a')
+                    sub:str(round(avg_marks, 2))
                 })
                    
             return Response(

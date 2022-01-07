@@ -1,11 +1,7 @@
 from django.db import models
-from django.db.models.fields import FloatField,CharField,DateTimeField,AutoField
-from django.contrib.postgres.fields import ArrayField
-
-# Create your models here.
 
 
-class Students(models.Model):
+class StudentsDetails(models.Model):
     name = models.CharField(max_length = 20,db_column="Name")
     Id = models.AutoField(primary_key=True)
     date_of_birth = models.DateTimeField(db_column="D-O-B")
@@ -15,11 +11,17 @@ class Students(models.Model):
         return self.name
 
 class Subjects(models.Model):
-    student = models.ForeignKey(Students,on_delete=models.CASCADE)
-    english = models.FloatField(db_column="English")
-    tamil = models.FloatField(db_column="Tamil")
-    maths = models.FloatField(db_column="Maths")
-    science = models.FloatField(db_column="Science")
-    social = models.FloatField(db_column="Social")
+    sub_id = models.AutoField(primary_key=True)
+    subject_name = models.CharField(max_length=20)
+
+    def __str__(self):
+        return self.subject_name
+
+class Studentmarks(models.Model):
+    subject = models.ForeignKey(Subjects, on_delete=models.CASCADE)
+    student = models.ForeignKey(StudentsDetails, on_delete=models.CASCADE)
+    marks = models.FloatField()
 
     
+
+  
