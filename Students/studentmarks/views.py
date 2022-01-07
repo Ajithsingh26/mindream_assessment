@@ -26,7 +26,7 @@ class StudentCreateMark(APIView):
             social  = (data.get("social"))
             
             student_new, created = Students.objects.update_or_create(name=student_name,date_of_birth = dob,father_name = father_name)
-            print(created)
+            #print(created)
             if created:
                 student_id = Students.objects.filter(pk = student_new.pk).first()
             else:
